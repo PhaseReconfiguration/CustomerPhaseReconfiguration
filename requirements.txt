@@ -1,0 +1,17 @@
+numpy
+scipy
+pandas
+pandapower
+numba
+xlrd
+openpyxl
+geopandas
+folium
+mapclassify
+matplotlib
+plotly
+igraph
+nbformat
+ipykernel
+unidecode
+pygad
