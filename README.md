@@ -6,9 +6,7 @@ For more detailed information, refer to the paper [here](https://orbi.uliege.be/
 ## Table of Contents
 - [Introduction](#introduction)
 - [Required Data](#requireddata)
-- [Data](#data)
 - [Usage](#usage)
-- [Results](#results)
 
 ## Introduction
 This repository provides the implementation of a computationally efficient methodology for optimizing customer phase configurations in power distribution networks. The approach performs only one rephasing, optimized over a full year of DER load curves, to achieve balanced operation and minimize energy losses. The method eliminates the need for power flow computations and extensive smart meter installations, making it scalable for large-scale networks.
