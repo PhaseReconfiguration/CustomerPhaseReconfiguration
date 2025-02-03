@@ -1,7 +1,7 @@
 # Customer Phase Reconfiguration
 This repository contains the code and data used for the **Customer Phase Reconfiguration** in electrical distribution networks. The methodology optimizes phase configurations to improve network balance and efficiency, enabling better integration of distributed energy resources (DERs) like photovoltaic panels (PVs), electric vehicles (EVs), and heat pumps (HPs).
 
-For more detailed information, refer to the paper [here](https://orbi.uliege.be).
+For more detailed information, refer to the paper [here](https://orbi.uliege.be/handle/2268/327465).
 
 ## Table of Contents
 - [Introduction](#introduction)
