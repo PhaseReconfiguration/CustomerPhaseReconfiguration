@@ -158,11 +158,13 @@ def plot_PF_results(feederbalancing, results, meaningful_days=None, clip=None):
         plt.xlabel(label)
 
         ax1.set_title(f"{issue.capitalize()} by Phase and Feeder")
-        ax1.set_ylabel(f"{issue.capitalize()} (units)")
         ax1.legend(loc=1)
 
         if(clip and issue == 'voltage'):
+            ax1.set_ylabel(f"{issue.capitalize()} (p.u.)")
             plt.ylim(clip)
+        elif(clip and issue == 'loss_line'):
+            ax1.set_ylabel(f"{issue.capitalize()} (kWh)")
 
         # Show the plot
         plt.show()

@@ -46,7 +46,7 @@ class FeederBalancing:
         self.number_customers = len(self.net.asymmetric_load)
         self.feeders = [270,61]
         self.assign_feeders(self.feeders) #Depends on the network (The first bus(es) after the substation low-voltage bus )
-        self.temp_P = None
+        self.B_sol = self.B_init = self.B_init_opposite = self.B_feas_nobinary_per_customer = self.B_feas_per_customer = self.B_feas = self.B_feas_binary = self.B_feas_binary_per_customer = self.temp_P = None
         self.feeder_colors = np.random.choice(list(mcolors.CSS4_COLORS.keys()), len(self.feeders))
         
         self.timesteps = list(range(self.len_timeseries))
@@ -73,7 +73,7 @@ class FeederBalancing:
 
     def import_network(self, input_path):
         net = pp.from_pickle(os.path.join(input_path, 'anonymized_net.p'))
-        choosable_buses = list(net.load.bus)
+        choosable_buses = list(net.asymmetric_load.bus)
 
         self.NetInfo(net)
         simple_plotly(net, bus_color=net.bus['color'])
@@ -578,14 +578,13 @@ class FeederBalancing:
                 current_net.asymmetric_load.loc[i, f'p_{p.lower()}_mw'] = load
                 current_net.asymmetric_load.loc[i, f'q_{p.lower()}_mvar'] = load * power_factor
 
-    def run_simulations(self, B, output_path):
+    def run_simulations(self, P, output_path):
         lbar = tqdm(total=len(self.timesteps))
         ti = time.time()
         issues_to_consider = ['voltage', 'load_line', 'loss_line', 'load_trafo', 'loss_trafo']
 
         times=[]
         debug_time_executions = {'generate': [], 'ts': [], 'pf': [], 'res': []}
-        P = self.change_P(B)
 
         results = []
         for f in range(len(self.feeders)):
@@ -633,4 +632,6 @@ class FeederBalancing:
         print(f'Elapsed time: {timestep} s ({(timestep/60):.1f} m). Average: {(timestep/len(self.timesteps)):.5f} s/pf')
 
         lbar.close()
+
+        np.save(output_path, results)
         return debug_time_executions, results

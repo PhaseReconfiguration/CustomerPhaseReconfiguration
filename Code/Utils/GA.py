@@ -4,6 +4,7 @@ import numpy as np
 class GA:
 
     def __init__(self, feederbalancing, reconstruct=False) -> None:
+        np.random.seed(19)
         self.feederbalancing = feederbalancing
         self.okay = 0
         self.total = 0
@@ -46,11 +47,10 @@ class GA:
     def on_generation(self, ga_instance):
         tmp_best_solution = ga_instance.best_solution(pop_fitness=ga_instance.last_generation_fitness)
         self.fitnesses.append(ga_instance.last_generation_fitness)
-        print(f"Generation = {ga_instance.generations_completed}/{self.num_generations}")
         diff = tmp_best_solution[1] if not self.best_solution else tmp_best_solution[1] - self.best_solution[1]
         if(diff>0):
-            print(f"New solution    = {tmp_best_solution[0]}")
-            print(f"Fitness         = {tmp_best_solution[1]} (diff: {diff})")
+            print(f"Generation = {ga_instance.generations_completed}/{self.num_generations}")
+            print(f"New solution    = {tmp_best_solution[0]}. Fitness = {tmp_best_solution[1]:.5f} (diff: {diff:.5f})")
             self.best_solution = tmp_best_solution
             if(self.reconstruct):            
                 B_sol = self.feederbalancing.get_B_from_genetic(
@@ -58,8 +58,7 @@ class GA:
                     )
             else:
                 B_sol = self.feederbalancing.get_B_from_genetic(self.best_solution[0])
-            print(f'Solution loss: {self.feederbalancing.objective_function(B_sol, False)} ({self.feederbalancing.objective_function(B_sol)}). N. changes: {np.sum(B_sol * self.feederbalancing.B_init_opposite)}.')
-            print()
+            print(f'Solution loss: {self.feederbalancing.objective_function(B_sol, False):.5f} ({self.feederbalancing.objective_function(B_sol):.5f}). N. changes: {np.sum(B_sol * self.feederbalancing.B_init_opposite)}.')
             mutation_rate = self.mutation_rate
         else:
             mutation_rate = np.random.rand() * 0.8 + 0.05 
@@ -102,7 +101,7 @@ class GA:
         for i in constraints:
             possible_combinations = possible_combinations * len(i)
         tested_combinations = self.num_generations*self.population_size
-        print(f"There are {possible_combinations:e} possible combinations to test (good luck with that!!). Solutions that will be tested: {tested_combinations} ({(tested_combinations/possible_combinations*100):.2f}%)")
+        print(f"There are {possible_combinations:e} possible combinations to test (good luck with that!!). Solutions that will be tested: {tested_combinations} ({(tested_combinations/possible_combinations*100)}% of total)")
         print(f"Initial solution: {self.feederbalancing.B_init_nobinary}. Number customers: {len(self.feederbalancing.B_init_nobinary)}\n")
 
         initial_population = [self.generate_individual(constraints) for _ in range(self.population_size)]
