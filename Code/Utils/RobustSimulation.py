@@ -6,6 +6,7 @@ from scipy import stats
 
 class RobustSimulation:
     def __init__(self, feederbalancing, input_path, n_simulations=40, n_customer_to_choose=10) -> None:
+        np.random.seed(14)
         self.feederbalancing = feederbalancing
         self.n_timesteps = feederbalancing.number_timesteps
         self.uncertainty_levels = np.array([0, 10, 20, 30, 50, 75]) / 100
@@ -17,13 +18,14 @@ class RobustSimulation:
         self.fluctuations = {u:[] for u in self.uncertainty_levels}
 
     def run_robust_simulation(self, seed=42):
-        total_simulations = (len(self.uncertainty_levels)+1) * self.n_simulations
+        total_simulations = (len(self.uncertainty_levels)-1) * (self.n_simulations+1) + 2
         expected_time = 50 #seconds
         print(f"### Running a total of {total_simulations} simulations. Expected time: {total_simulations * expected_time} seconds ({total_simulations * expected_time / 60} mins) ###")
         np.random.seed(seed)
         for u in self.uncertainty_levels:
             print(f"\nRunning simulation BEFORE for uncertainty={u*100}%")
-            P = self.feederbalancing.change_P(self.feederbalancing.B_sol)
+            P = self.feederbalancing.change_P(self.feederbalancing.B_sol) #Mauri
+            # P = self.feederbalancing.change_P(self.feederbalancing.B_init)
             _, results_before = self.feederbalancing.run_simulations(P, f"{self.input_path}/Robust/results_before_{u}.npy")
             self.results[u]['before'] = results_before
 
@@ -38,13 +40,13 @@ class RobustSimulation:
                     ean = customer['ean'].values[0]
                     phases = customer['phase_load'].values[0]
 
-                    signs = np.where(np.random.rand(len(P)) < 0.5, 1, -1)
                     multipliers = np.array([self.feederbalancing.get_phase_splitting_values(len(phases)) for _ in range(len(P))])
 
                     for i, p in enumerate(phases):
+                        signs = np.where(np.random.rand(len(P)) < 0.5, 1, -1)
                         fluctuation = signs * u * multipliers[:, i] * P[f'{ean}_{p}']
-                        self.fluctuations[u].append(fluctuation)
                         P_modified[f'{ean}_{p}'] += fluctuation
+                        self.fluctuations[u].append(fluctuation)
 
                 _, results_after = self.feederbalancing.run_simulations(P_modified, f"{self.input_path}/Robust/results_after_{u}_{s}.npy")
                 self.results[u]['after'].append(results_after)
@@ -67,16 +69,17 @@ class RobustSimulation:
             abs_deltas = []
 
             for s in range(len(after)): # for number simulations
-                abs_total = []
-                for f in range(len(self.feederbalancing.feeders)):
-                    for t in range(self.n_timesteps):
+                aa = []
+                for t in range(self.n_timesteps):
+                    abs_total = []
+                    for f in range(len(self.feederbalancing.feeders)):
                         b = np.array(before[f][t][metric]).flatten()
                         a = np.array(after[s][f][t][metric]).flatten()
                         deviations = np.abs(b - a)
-                        # filtered_devs = deviations[deviations > 0.001]
-                        # print(f"Min Deviation: {np.min(deviations)}, Max Deviation: {np.max(deviations)}, Mean Deviation: {np.mean(deviations)}, Std Deviation: {np.std(deviations)}, CI: {stats.sem(deviations)}, CI Lower: {stats.t.ppf((1 + confidence)/2., len(deviations)-1) * stats.sem(deviations)}, CI Upper: {stats.t.ppf((1 + confidence)/2., len(deviations)-1) * stats.sem(deviations)}, 95 Percentile: {np.percentile(deviations, 95)}")
+
                         abs_total.append(np.sum(deviations))
-                abs_deltas.append(np.mean(abs_total))
+                    aa.append(np.mean(abs_total))
+                abs_deltas.append(np.mean(aa))
 
             mean = np.mean(abs_deltas)
             ci = 0 if len(abs_deltas) < 2 else stats.sem(abs_deltas) * stats.t.ppf((1 + confidence)/2., len(abs_deltas)-1)
@@ -85,7 +88,7 @@ class RobustSimulation:
                 'Uncertainty': u * 100,
                 'Metric': metric,
                 'ErrorType': 'absolute',
-                'Mean': mean * 100,
+                'Mean': mean,
                 'CI_Lower': mean - ci,
                 'CI_Upper': mean + ci
             })
@@ -112,8 +115,8 @@ class RobustSimulation:
         if not subset.empty:
             plt.fill_between(
                 subset['Uncertainty'],
-                subset['CI_Lower'],
-                subset['CI_Upper'],
+                subset['Mean'] - subset['CI_Lower'],
+                subset['Mean'] + subset['CI_Lower'],
             alpha=0.2
         )
 
