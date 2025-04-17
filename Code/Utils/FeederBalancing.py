@@ -96,7 +96,7 @@ class FeederBalancing:
         return self.dict_phasecode_to_number[phasecode]
 
     def get_score(self, h_surface, number_phases):
-        #PV: https://pdf.sciencedirectassets.com/280851/1-s2.0-S2211467X22X00072/1-s2.0-S2211467X23001281/main.pdf?X-Amz-Security-Token=IQoJb3JpZ2luX2VjEJ3%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FwEaCXVzLWVhc3QtMSJHMEUCIQCEnMLu0y6ENVyHyFXISbvxs%2BeVM%2BtJ4eVvSQHVHB2I%2BQIgOdtj3nYwO4mdCwqRqJCo5yh79c1SIQyWITtKvLDhjEAqsgUIRhAFGgwwNTkwMDM1NDY4NjUiDNwMccNyvzGK1FTB8CqPBXh1jHYvDjcWjAkjrBprgxY%2F5IXIb71jaq46KjuFnum9HcL%2Fxxj6xvh%2BBhvBiKaAWuJ%2BhOgKJblPAqb7t%2BT9O%2FRbJH5RUWFHL1pepYZgPIpS%2B7vaY8CtYgYkwC04gNrACswZUU0Tn%2FIR3ZVDiOD2nVo5F%2BKw1hzGKljqvdY1kZKtuSRd5MZRW8nDqfDK%2BkPzp%2F3zUsHMY2AHnyDtK4RQcA7u24MiUS9neAe1QXMTS%2FjqQ0ZzFSD28zMY6Pe0PelnlJkNVrz%2BjmEHsw8hfrPoCZN1zjWQmcKXrB0HHOYUtCFWebfPHwjpEnsMLgQ%2BeKZUGxwVNu7qhq4YJHwfzJhlGQavJ6pkXyrj8aAwI1959OusgejJ55BOJYU7285d6muckAgBzW%2FD9fxQkAjaI1Np713Yf5cqQ3iPwxJwt14jGh868RjQLoKul61a9a%2BMG4Fudb0BahvNhRYgORRrNKaVkprXBOSuOG9AVtwk8%2BB%2Bi1eLmR5frXjZig9lLzpWf9sCMMnZdTHFAcEOrhWh1Tha4wGICuXuBbvxQlmQsdF6DqHzK2K9bQsH0dSAEk6DOOoA6dEHOEeZo8FWqgbX9z80DyNqFxB3xyS8x1BwTNTByaKAiTeZDb65fjnua7hlFDDviTvFgKchSBuFaOy37Q4aA%2Fm1S2M%2FesjNe3O79Tf4tstuVbZIlmMkB%2Bma4D%2Fqv8BcEAzo1rhUtUgkP3iW%2F43WQmMvCv%2BmN3TQi%2FLOa3l0tFl14LfZOBv5Pfe%2B9Kxu803nYOkP2tOu7YOSN%2FOo1DQMTLBoZI02YOYC7US4jFjeiiA8TXdkPn4W2Wual%2B%2FcUfAa4g6%2FH0v%2Bc1CB0BmRaIy02tTis7VfNxDKBPhn8Z2DmUcwrKOcugY6sQFUt8TxKH5tsIb6vk6IEyek0EwqjIrlrTAqPubj7n4oWYna4JhceuTndqEygtfUPBNL3O6j8qlpZaMCfT4jqSN1e5ELpkIlsgF29Vgf%2FBsFS2%2BcbiPvTk6lCYxG92NQqheYErJ5bv14WmC5MKdVhGA1hMnx86TTUlKEDpPbUqeFL3WSWwY3JbYlAW0zajjRNf3DOggIBpOWxgk0kVpb%2Bo%2B8RjRQZznKo9aLV2NH8H83wvo%3D&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20241127T133941Z&X-Amz-SignedHeaders=host&X-Amz-Expires=300&X-Amz-Credential=ASIAQ3PHCVTY6NZOVK4C%2F20241127%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Signature=e17752cbf36b4c3b6e636634e6604889bebf2c8db4d942705f9d6ad7f6d3c6f6&hash=c4025a6d6e934b7461dea9fc5af2a340b50d2e2f589342c412508ffaf3416501&host=68042c943591013ac2b2430a89b270f6af2c76d8dfd086a07176afe7c76c2c61&pii=S2211467X23001281&tid=spdf-fe3a5c3a-e8c3-485f-bd50-aea73e4c6115&sid=53e02f3a4ed4054da778a3b4a62cf4c2c620gxrqb&type=client&tsoh=d3d3LnNjaWVuY2VkaXJlY3QuY29t&ua=18075e045a5c59555e55&rr=8e928696084cb9a1&cc=be
+        #PV: https://www.sciencedirect.com/science/article/pii/S2211467X23001281?ref=pdf_download&fr=RR-2&rr=93098ed61f3cb9ab
         #EV: https://escholarship.org/uc/item/2b05w8pk
         score = h_surface/80 + number_phases/1.75 #Means values
         return score
@@ -633,5 +633,5 @@ class FeederBalancing:
 
         lbar.close()
 
-        np.save(output_path, results)
+        np.save(output_path, results, allow_pickle=True)
         return debug_time_executions, results
