@@ -20,18 +20,18 @@ class FeederBalancing:
     def __init__(self, input_path):
         # Conventions:
         # - Use kWh for timeseries (easier to understand even it pandapower asks for MWh at the end)
-        np.random.seed(19)
+        np.random.seed(1234)
         self.input_path = input_path
 
         self.avalilable_phases = ['A', 'B', 'C']
         self.len_timeseries = 4*24*365 #to change depending on the availbale data
         self.dict_phasecode_to_number = {'Monophasé (sans neutre)':1, 'Monophasé':1, 'Triphasé':2, 'Tétraphasé':3}
         self.pv_scaling_factor = 712 #2850/4=712 -> energy produced by a system of 1 kWhp in an year. 
-        self.pv_installation_sizes = [self.pv_scaling_factor * 4, self.pv_scaling_factor * 16] #Ref: https://www.yesenergysolutions.co.uk/advice/how-much-energy-solar-panels-produce-home
+        self.pv_installation_sizes = [self.pv_scaling_factor * 2, self.pv_scaling_factor * 16] #Ref: https://www.yesenergysolutions.co.uk/advice/how-much-energy-solar-panels-produce-home
         self.ev_scaling_factor = 350
-        self.ev_installation_sizes = [self.ev_scaling_factor * 3.5, self.ev_scaling_factor * 18] #Ref: TODO
+        self.ev_installation_sizes = [self.ev_scaling_factor * 3, self.ev_scaling_factor * 15] #Ref: TODO
         self.hp_scaling_factor = 300
-        self.hp_installation_sizes = [self.hp_scaling_factor * 2.5, self.hp_scaling_factor * 16] #Ref: TODO
+        self.hp_installation_sizes = [self.hp_scaling_factor * 2, self.hp_scaling_factor * 14] #Ref: TODO
 
         self.consumption_file = pd.read_excel(os.path.join(self.input_path, "RESA", "anonymized_consumption_file.xlsx"))
         self.list_load_timeseries = pd.read_csv(os.path.join(input_path, 'RESA', 'anonymized_Load_SM_timeseries.csv'), sep=',', index_col=0).reset_index()
@@ -88,6 +88,9 @@ class FeederBalancing:
         print(f'There are {len(net.bus)} nodes')
         print(f"There are {len(net.line)} lines")
         print(f"There are {np.sum(net.bus['info']=='customer')} customers")
+        print(f"There are {np.sum(net.asymmetric_load.phase_pv.values != None)} customers with PV")
+        print(f"There are {np.sum(net.asymmetric_load.phase_ev.values != None)} customers with EV")
+        print(f"There are {np.sum(net.asymmetric_load.phase_hp.values != None)} customers with HP")
 
     def get_phasecode_from_number(self, number_phases):
         value = {i for i in self.dict_phasecode_to_number if self.dict_phasecode_to_number[i]==number_phases}
@@ -194,9 +197,9 @@ class FeederBalancing:
             timeseries_default3 = self.pv_timeseries_default['PV7'][:self.len_timeseries]
             timeseries_default = [timeseries_default1, timeseries_default2, timeseries_default3]
 
-            pv_pen_rate = 0.85 #[0,1]
-            current_pv_pen_rate =  len(customers_wo_ts) / len(self.net.asymmetric_load)
-            delta_pv_pen_rate = pv_pen_rate # pv_pen_rate - current_pv_pen_rate #TODO: fix to a different amount
+            # pv_pen_rate = 0.75 #[0,1]
+            # current_pv_pen_rate =  len(customers_wo_ts) / len(self.net.asymmetric_load)
+            delta_pv_pen_rate = 0.1 # pv_pen_rate - current_pv_pen_rate #TODO: fix to a different amount
             choosable_buses_missing_pv = [i.bus for i in customers_wo_ts]
             self.net = self.PVinstallation(self.net, choosable_buses_missing_pv, delta_pv_pen_rate)
             for j,c in enumerate(customers_wo_ts):
@@ -253,20 +256,23 @@ class FeederBalancing:
 
             assigned_timeseries = pd.DataFrame()
             for i ,c in self.net.asymmetric_load.iterrows():
-                install_random = np.random.rand()
-                if(install_random>pen_rate):
-                    continue
+                # install_random = np.random.rand()
+                # if(install_random>pen_rate):
+                #     continue
                 ean = c['ean']
                 phases_load = c['phase_load']
+                phases_installed = c[f'phase_{column}']
+                if(phases_installed is None):
+                    continue
                 h_surface = c['hh_surf']
 
                 phases, annual_consumption = self.phases_from_score(h_surface, phases_load, tech_installation_sizes)
                 
                 self.net.asymmetric_load.at[i, f'ann_{column}_cons'] = annual_consumption
-                self.net.asymmetric_load.at[i, f'phase_{column}'] = ''.join(phases)
+                # self.net.asymmetric_load.at[i, f'phase_{column}'] = ''.join(phases)
 
                 multipliers = self.get_phase_splitting_values(len(phases))
-                period = self.shift_timeseries(4*5)
+                period = self.shift_timeseries(4*6)
                 factor = np.random.random(1)*0.2+0.8
                 for j,p in enumerate(phases):
                     if(annual_consumption>tech_installation_sizes[0]):
@@ -286,7 +292,6 @@ class FeederBalancing:
         self.assigned_pv_timeseries = assigned_pv_timeseries
         self.assigned_ev_timeseries = assigned_ev_timeseries
         self.assigned_hp_timeseries= assigned_hp_timeseries
-        print(f"Customers with:\nPV: {self.net.asymmetric_load['phase_pv'].notnull().sum()},\nEV: {self.net.asymmetric_load['phase_ev'].notnull().sum()},\nHP: {self.net.asymmetric_load['phase_hp'].notnull().sum()}")
 
 
     def assign_ts_to_phase(self):
@@ -542,7 +547,7 @@ class FeederBalancing:
             
             # Calculate unbalance loss for all timesteps
             # Reshape mu to (T,1) for broadcasting
-            loss = np.square(np.abs(A - mu[:, np.newaxis])).sum(axis=1)  # Shape: (T,)
+            loss = np.abs(A - mu[:, np.newaxis]).sum(axis=1)  # Shape: (T,)
             loss_unbalance += np.sum(loss)
             
             # Calculate aggregate loss
@@ -555,10 +560,9 @@ class FeederBalancing:
         loss_distance = np.sum(self.distances * np.sum(B * self.B_init_opposite, axis=1))
         
         # Calculate final loss
-        loss = (loss_unbalance * self.scale_unbalance - 
+        loss = (loss_unbalance * self.scale_unbalance + 
                 loss_aggregate * self.scale_aggregate + 
-                (loss_changes * self.scale_changes + 
-                loss_distance * self.scale_distances) * complete)
+                (loss_changes * self.scale_changes + loss_distance * self.scale_distances) * complete)
         
         # Store loss components
         self.unbalance_loss.append(loss_unbalance)

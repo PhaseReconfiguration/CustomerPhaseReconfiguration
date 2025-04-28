@@ -5,50 +5,44 @@ import seaborn as sns
 from scipy import stats
 
 class RobustSimulation:
-    def __init__(self, feederbalancing, input_path, n_simulations=40, n_customer_to_choose=10) -> None:
-        np.random.seed(14)
+    def __init__(self, feederbalancing, out_path, n_simulations=40) -> None:
+        np.random.seed(15)
         self.feederbalancing = feederbalancing
         self.n_timesteps = feederbalancing.number_timesteps
         self.uncertainty_levels = np.array([0, 10, 20, 30, 50, 75]) / 100
         self.n_simulations = n_simulations
-        self.n_customer_to_choose = n_customer_to_choose
-        self.input_path = input_path
+        self.input_path = out_path
 
         self.results = {u: {'before': None, 'after': []} for u in self.uncertainty_levels}
-        self.fluctuations = {u:[] for u in self.uncertainty_levels}
+        self.fluctuations = {u: [] for u in self.uncertainty_levels}
 
-    def run_robust_simulation(self, seed=42):
-        total_simulations = (len(self.uncertainty_levels)-1) * (self.n_simulations+1) + 2
-        expected_time = 50 #seconds
-        print(f"### Running a total of {total_simulations} simulations. Expected time: {total_simulations * expected_time} seconds ({total_simulations * expected_time / 60} mins) ###")
-        np.random.seed(seed)
+    def run_robust_simulation(self):
+        total_simulations = (len(self.uncertainty_levels) - 1) * (self.n_simulations + 1) + 2
+        expected_time = 50  # seconds
+        print(f"### Running {total_simulations} simulations. Estimated time: {total_simulations * expected_time / 60:.1f} mins ###")
+
         for u in self.uncertainty_levels:
-            print(f"\nRunning simulation BEFORE for uncertainty={u*100}%")
-            P = self.feederbalancing.change_P(self.feederbalancing.B_sol) #Mauri
-            # P = self.feederbalancing.change_P(self.feederbalancing.B_init)
-            _, results_before = self.feederbalancing.run_simulations(P, f"{self.input_path}/Robust/results_before_{u}.npy")
+            print(f"\nRunning BEFORE simulation for uncertainty={u*100:.0f}%")
+            P = self.feederbalancing.change_P(self.feederbalancing.B_sol)  # Use optimized phase assignment
+            _, results_before = self.feederbalancing.run_simulations(P, f"{self.input_path}/results_before_{u}.npy")
             self.results[u]['before'] = results_before
 
             for s in range(self.n_simulations if u > 0 else 1):
-                print(f"Running simulation AFTER for uncertainty={u*100}%, simulation={s}")
+                print(f"Running AFTER simulation for uncertainty={u*100:.0f}%, simulation={s+1}")
                 P_modified = P.copy()
-                selected_buses = np.random.choice(self.feederbalancing.choosable_buses, self.n_customer_to_choose, replace=False)
 
-                for bus in selected_buses:
-                    customer = self.feederbalancing.net.asymmetric_load.loc[self.feederbalancing.net.asymmetric_load['bus']==bus]
-
+                for bus in self.feederbalancing.choosable_buses:
+                    customer = self.feederbalancing.net.asymmetric_load.loc[self.feederbalancing.net.asymmetric_load['bus'] == bus]
                     ean = customer['ean'].values[0]
                     phases = customer['phase_load'].values[0]
 
-                    multipliers = np.array([self.feederbalancing.get_phase_splitting_values(len(phases)) for _ in range(len(P))])
+                    fluctuation_factors = 1 + np.random.normal(0, u, size=(len(P), len(phases)))
 
                     for i, p in enumerate(phases):
-                        signs = np.where(np.random.rand(len(P)) < 0.5, 1, -1)
-                        fluctuation = signs * u * multipliers[:, i] * P[f'{ean}_{p}']
-                        P_modified[f'{ean}_{p}'] += fluctuation
-                        self.fluctuations[u].append(fluctuation)
+                        P_modified[f'{ean}_{p}'] *= fluctuation_factors[:, i]
+                        self.fluctuations[u].append(fluctuation_factors[:, i])
 
-                _, results_after = self.feederbalancing.run_simulations(P_modified, f"{self.input_path}/Robust/results_after_{u}_{s}.npy")
+                _, results_after = self.feederbalancing.run_simulations(P_modified, f"{self.input_path}/results_after_{u}_{s}.npy")
                 self.results[u]['after'].append(results_after)
 
     def load_results(self, results_path):
@@ -59,35 +53,37 @@ class RobustSimulation:
                 after = np.load(f"{results_path}/results_after_{u}_{s}.npy", allow_pickle=True)
                 self.results[u]['after'].append(after)
 
-    def calculate_confidence_intervals(self, confidence=0.95):
+    def calculate_confidence_intervals(self, metric='voltage', confidence=0.95):
         ci_data = []
-        metric = 'voltage' #only voltage is used here
 
         for u in self.uncertainty_levels:
             before = np.array(self.results[u]['before'])
             after = np.array(self.results[u]['after'])
             abs_deltas = []
 
-            for s in range(len(after)): # for number simulations
-                aa = []
+            for s in range(len(after)):  # for each simulation
+                delta_per_timestep = []
+
                 for t in range(self.n_timesteps):
-                    abs_total = []
+                    timestep_deltas = []
+
                     for f in range(len(self.feederbalancing.feeders)):
                         b = np.array(before[f][t][metric]).flatten()
                         a = np.array(after[s][f][t][metric]).flatten()
                         deviations = np.abs(b - a)
 
-                        abs_total.append(np.sum(deviations))
-                    aa.append(np.mean(abs_total))
-                abs_deltas.append(np.mean(aa))
+                        timestep_deltas.append(np.mean(deviations))
+
+                    delta_per_timestep.append(np.mean(timestep_deltas))
+
+                abs_deltas.append(np.mean(delta_per_timestep))
 
             mean = np.mean(abs_deltas)
-            ci = 0 if len(abs_deltas) < 2 else stats.sem(abs_deltas) * stats.t.ppf((1 + confidence)/2., len(abs_deltas)-1)
+            ci = 0 if len(abs_deltas) < 2 else stats.sem(abs_deltas) * stats.t.ppf((1 + confidence) / 2., len(abs_deltas) - 1)
 
             ci_data.append({
-                'Uncertainty': u * 100,
+                'Uncertainty (%)': u * 100,
                 'Metric': metric,
-                'ErrorType': 'absolute',
                 'Mean': mean,
                 'CI_Lower': mean - ci,
                 'CI_Upper': mean + ci
@@ -96,38 +92,38 @@ class RobustSimulation:
         return pd.DataFrame(ci_data)
 
     def plot_results(self, save_path=None):
-        results_df = self.calculate_confidence_intervals()
+        all_metrics = ['voltage', 'losses', 'unbalance']
         sns.set_style("whitegrid")
-        plt.figure(figsize=(10, 6))
+        fig, axes = plt.subplots(len(all_metrics), 1, figsize=(10, 6 * len(all_metrics)))
 
-        ax = sns.lineplot(
-            data=results_df,
-            x='Uncertainty',
-            y='Mean',
-            hue='ErrorType',
-            style='ErrorType',
-            markers=True,
-            dashes=False,
-            markersize=10
-        )
+        for idx, metric in enumerate(all_metrics):
+            results_df = self.calculate_confidence_intervals(metric=metric)
 
-        subset = results_df[(results_df['ErrorType'] == 'absolute')]
-        if not subset.empty:
-            plt.fill_between(
-                subset['Uncertainty'],
-                subset['Mean'] - subset['CI_Lower'],
-                subset['Mean'] + subset['CI_Lower'],
-            alpha=0.2
-        )
+            ax = axes[idx] if len(all_metrics) > 1 else axes
+            sns.lineplot(
+                data=results_df,
+                x='Uncertainty (%)',
+                y='Mean',
+                marker='o',
+                markersize=8,
+                ax=ax
+            )
 
-        plt.title('Robustness Analysis with Confidence Intervals', fontsize=14)
-        plt.xlabel('Uncertainty Level (%)')
-        plt.ylabel('Voltage Deviation')
-        # plt.legend(title='Error Type')
+            ax.fill_between(
+                results_df['Uncertainty (%)'],
+                results_df['CI_Lower'],
+                results_df['CI_Upper'],
+                alpha=0.2
+            )
+
+            ax.set_title(f'Robustness Analysis: {metric.capitalize()}', fontsize=14)
+            ax.set_xlabel('Uncertainty Level (%)', fontsize=12)
+            ax.set_ylabel(f'{metric.capitalize()} deviation', fontsize=12)
+
         plt.tight_layout()
 
         if save_path:
             plt.savefig(save_path)
+            print(f"Plots saved to {save_path}")
         else:
             plt.show()
-        return results_df

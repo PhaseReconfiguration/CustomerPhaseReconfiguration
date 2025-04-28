@@ -4,7 +4,7 @@ import numpy as np
 class GA:
 
     def __init__(self, feederbalancing, reconstruct=False) -> None:
-        np.random.seed(19)
+        np.random.seed(1234)
         self.feederbalancing = feederbalancing
         self.okay = 0
         self.total = 0
@@ -81,7 +81,8 @@ class GA:
                     ga_instance.population[self.keep_parents+i,cust] = np.random.choice(feasible_configs)
         if(self.best_solution):
             # ga_instance.population[self.keep_parents+1] = self.best_solution[0] #Add solution since to assure feasability you may remove the best solution
-            ga_instance.population[0] = self.best_solution[0] #Add solution since to assure feasability you may remove the best solution
+            if(len(ga_instance.population[0]) == len(self.best_solution[0])):
+                ga_instance.population[0] = self.best_solution[0] #Add solution since to assure feasability you may remove the best solution
 
     def initialize_run(self):
         num_parents_mating = max(4, int(self.population_size*0.4)) # Number of solutions to be selected as parents in the mating pool.

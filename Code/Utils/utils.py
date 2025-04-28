@@ -2,7 +2,9 @@ import colorsys
 import matplotlib.pyplot as plt
 import numpy as np
 
-figsize = (8,5)
+figsize = (12,6)
+fontsize = 18
+legend_fontsize = 14
 
 def hex_to_rgb(hex_color):
     """Convert hex color to RGB values in the range [0, 1]."""
@@ -24,7 +26,7 @@ def scale_lightness(hex_color, scale_l):
     # Convert RGB back to hex
     return rgb_to_hex(rgb_scaled)
 
-def plot_P_by_feeder(B, feederbalancing, timesteps, feeder_colors, meaningful_days=None, clips=None):
+def plot_P_by_feeder(B, feederbalancing, timesteps, feeder_colors, meaningful_days=None, clips=None, save_paths=None):
     Af = {}
     phase_labels = feederbalancing.avalilable_phases  # Assuming phase labels are meaningful
     feeder_labels = [f"Feeder {f+1}" for f in range(len(feederbalancing.feeders))]
@@ -32,7 +34,7 @@ def plot_P_by_feeder(B, feederbalancing, timesteps, feeder_colors, meaningful_da
     P = P.loc[feederbalancing.timesteps]
 
     # Plot Phase Loads by Feeder
-    plt.figure(figsize=figsize)  # Consistent figure size
+    plt.figure(figsize=figsize)
     for f in range(len(feederbalancing.feeders)):
         eans = feederbalancing.net.asymmetric_load.loc[
             feederbalancing.net.asymmetric_load['feeder'] == f, 'ean'
@@ -48,24 +50,26 @@ def plot_P_by_feeder(B, feederbalancing, timesteps, feeder_colors, meaningful_da
     label = "Timestep"
     if(meaningful_days):
         ticks = np.arange(12*4, len(meaningful_days)*24*4, 24*4)
-        plt.xticks(ticks, meaningful_days)  # Set custom ticks and labels
+        plt.xticks(ticks, meaningful_days, fontsize=fontsize)
         label = "Day of Year (DOY)"
-    plt.xlabel(label)
+    plt.xlabel(label, fontsize=fontsize)
 
-    plt.ylabel("Load [kW]")
-    plt.title("Phase Load")
+    plt.ylabel("Load [kW]", fontsize=fontsize)
+    plt.yticks(fontsize=fontsize)
+    plt.title("Phase Load", fontsize=fontsize)
     
     if(clips):
         plt.ylim(clips[0])
 
-    plt.legend()
+    plt.legend(fontsize=legend_fontsize)
+    if(save_paths):
+        plt.savefig(save_paths[0]+f'/load_{save_paths[1]}.png')
     plt.show()
 
     # Plot Loss by Feeder
-    plt.figure(figsize=figsize)  # Consistent figure size
+    plt.figure(figsize=figsize)
     for f in range(len(feederbalancing.feeders)):
         A = Af[f]
-        # KPI = np.abs(np.max(A, axis=0) - np.min(A, axis=0)) / 2
         KPI = np.mean(A, axis=0)
         loss = np.abs(A - KPI).sum(axis=0)
 
@@ -74,21 +78,24 @@ def plot_P_by_feeder(B, feederbalancing, timesteps, feeder_colors, meaningful_da
     label = "Timestep"
     if(meaningful_days):
         ticks = np.arange(12*4, len(meaningful_days)*24*4, 24*4)
-        plt.xticks(ticks, meaningful_days)  # Set custom ticks and labels
+        plt.xticks(ticks, meaningful_days, fontsize=fontsize)
         label = "Day of Year (DOY)"
-    plt.xlabel(label)
-    plt.ylabel("Unbalance [kW]")
-    plt.title("Feeders Unbalance")
+    plt.xlabel(label, fontsize=fontsize)
+    plt.ylabel("Unbalance [kW]", fontsize=fontsize)
+    plt.yticks(fontsize=fontsize)
+    plt.title("Feeders Unbalance", fontsize=fontsize)
     
     if(clips):
         plt.ylim(clips[1])
 
-    plt.legend()
+    plt.legend(fontsize=legend_fontsize)
+    if(save_paths):
+        plt.savefig(save_paths[0]+f'/unbalance_{save_paths[1]}.png')
     plt.show()
 
     return Af, P
 
-def plot_feeder_unbalance(feederbalancing, A_init, A_sol, feeder_colors, feeder_colors_after, meaningful_days=None, clip=None):
+def plot_feeder_unbalance(feederbalancing, A_init, A_sol, feeder_colors, feeder_colors_after, meaningful_days=None, clip=None, save_path=None):
     for f in range(len(feederbalancing.feeders)):
         # Calculate unbalances
         x_init = np.abs(A_init[f] - np.mean(A_init[f], axis=0)).sum(axis=0)
@@ -101,27 +108,30 @@ def plot_feeder_unbalance(feederbalancing, A_init, A_sol, feeder_colors, feeder_
         print(f"Feeder {f+1}: Initial = {total_init}, Solution = {total_sol}, Reduction = {reduction_percentage:.2f}%")
 
         # Create plot
-        plt.figure(figsize=figsize)  # Consistent figure size
+        plt.figure(figsize=figsize)
         plt.plot(x_init, '-', color=feeder_colors[f], label=f'Feeder {f+1} (Initial)')
         plt.plot(x_sol, '--', color=feeder_colors_after[f], label=f'Feeder {f+1} (Solution)')
 
         label = "Timestep"
         if(meaningful_days):
             ticks = np.arange(12*4, len(meaningful_days)*24*4, 24*4)
-            plt.xticks(ticks, meaningful_days)  # Set custom ticks and labels
+            plt.xticks(ticks, meaningful_days, fontsize=fontsize)
             label = "Day of Year (DOY)"
-        plt.xlabel(label)
+        plt.xlabel(label, fontsize=fontsize)
 
-        plt.ylabel('Unbalance [kW]')
-        plt.title('Feeder Phase Unbalance Comparison')
+        plt.ylabel('Unbalance [kW]', fontsize=fontsize)
+        plt.yticks(fontsize=fontsize)
+        plt.title('Feeder Phase Unbalance Comparison', fontsize=fontsize)
         
         if(clip):
             plt.ylim(clip[f])
 
-        plt.legend()
+        plt.legend(fontsize=legend_fontsize)
+        if(save_path):
+            plt.savefig(save_path+f'/delta_feeder{f+1}.png')
         plt.show()
 
-def plot_PF_results(feederbalancing, results, meaningful_days=None, clip=None):
+def plot_PF_results(feederbalancing, results, meaningful_days=None, clip=None, save_paths=None):
     # issues_to_consider = ['voltage', 'load_line', 'loss_line', 'load_trafo', 'loss_trafo']
     for issue in ['voltage', 'loss_line']:
         fig1, ax1 = plt.subplots(figsize=figsize)
@@ -139,7 +149,7 @@ def plot_PF_results(feederbalancing, results, meaningful_days=None, clip=None):
 
             # Plot for each phase
             for p in range(3):
-                ax1.plot(v[p], label=f'Feeder {f+1}, Phase {p+1}', linestyle=linestyle)
+                ax1.plot(v[p], label=f'Feeder {f+1}, Phase {p+1}', linestyle=linestyle)  # Removed fontsize parameter
 
             # Print statistics
             total_sum = np.sum(v)
@@ -153,18 +163,22 @@ def plot_PF_results(feederbalancing, results, meaningful_days=None, clip=None):
         label = "Timestep"
         if(meaningful_days):
             ticks = np.arange(12*4, len(meaningful_days)*24*4, 24*4)
-            plt.xticks(ticks, meaningful_days)  # Set custom ticks and labels
+            plt.xticks(ticks, meaningful_days)
             label = "Day of Year (DOY)"
-        plt.xlabel(label)
+        plt.xlabel(label, fontsize=fontsize)
+        plt.xticks(fontsize=fontsize)
 
-        ax1.set_title(f"{issue.capitalize()} by Phase and Feeder")
-        ax1.legend(loc=1)
+        ax1.set_title(f"{issue.capitalize()} by Phase and Feeder", fontsize=fontsize)
+        ax1.legend(loc=1, fontsize=legend_fontsize)
 
         if(clip and issue == 'voltage'):
-            ax1.set_ylabel(f"{issue.capitalize()} (p.u.)")
+            ax1.set_ylabel(f"{issue.capitalize()} (p.u.)", fontsize=fontsize)
             plt.ylim(clip)
         elif(clip and issue == 'loss_line'):
-            ax1.set_ylabel(f"{issue.capitalize()} (kWh)")
+            ax1.set_ylabel(f"{issue.capitalize()} (kWh)", fontsize=fontsize)
 
-        # Show the plot
+        plt.yticks(fontsize=fontsize)
+
+        if(save_paths):
+            plt.savefig(save_paths[0]+f'/{issue}_{save_paths[1]}.png')
         plt.show()
