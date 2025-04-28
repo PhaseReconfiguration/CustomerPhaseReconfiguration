@@ -28,10 +28,10 @@ class FeederBalancing:
         self.dict_phasecode_to_number = {'Monophasé (sans neutre)':1, 'Monophasé':1, 'Triphasé':2, 'Tétraphasé':3}
         self.pv_scaling_factor = 700 #Energy produced by a system of 1 kWhp in an year. 
         self.pv_installation_sizes = [self.pv_scaling_factor * 3.5, self.pv_scaling_factor * 16] #Ref: https://www.yesenergysolutions.co.uk/advice/how-much-energy-solar-panels-produce-home
-        self.ev_scaling_factor = 350
-        self.ev_installation_sizes = [self.ev_scaling_factor * 3, self.ev_scaling_factor * 18] #Ref: TODO
-        self.hp_scaling_factor = 300
-        self.hp_installation_sizes = [self.hp_scaling_factor * 5, self.hp_scaling_factor * 12] #Ref: TODO
+        self.ev_scaling_factor = 300
+        self.ev_installation_sizes = [self.ev_scaling_factor * 3, self.ev_scaling_factor * 15] #Ref: TODO
+        self.hp_scaling_factor = 350
+        self.hp_installation_sizes = [self.hp_scaling_factor * 4, self.hp_scaling_factor * 12] #Ref: TODO
         self.installations = {"pv": [0,0], "ev": [0,0], "hp": [0,0]}
 
         self.consumption_file = pd.read_excel(os.path.join(self.input_path, "RESA", "anonymized_consumption_file.xlsx"))
@@ -158,7 +158,7 @@ class FeederBalancing:
         if number_phases==1:
             return [1]
         else:
-            values = np.random.normal(1/number_phases, 0.2, number_phases)
+            values = np.random.normal(1/number_phases, 0.05, number_phases)
             values = np.maximum(values, 0.1)
             values = values / values.sum() #Normalize to sum=1
             self.s.append(values)
@@ -198,7 +198,7 @@ class FeederBalancing:
                         closest_diff = consumption_diff
 
                 multipliers = self.get_phase_splitting_values(len(phases))
-                factor = np.random.random(1)*0.2+0.8
+                factor = np.random.random(1)*0.3+0.7
                 for i,p in enumerate(phases):
                     if(closest_ean):
                         ts = list_load_timeseries[f"{closest_ean}_{p}"]
@@ -253,7 +253,7 @@ class FeederBalancing:
 
                     multipliers = self.get_phase_splitting_values(len(phases))
                     period = self.shift_timeseries(4*2)
-                    factor = np.random.random(1)*0.2+0.8
+                    factor = np.random.random(1)*0.3+0.7
                     for i,p in enumerate(phases):
                         tmp_load_timeseries = self.scale_time_series(timeseries_default[(j+i)%len(timeseries_default)], annual_prod * multipliers[i], self.pv_scaling_factor)
                         assigned_timeseries[f'{ean}_{p}'] = -tmp_load_timeseries.shift(periods=period, fill_value=0) * factor
@@ -319,7 +319,7 @@ class FeederBalancing:
 
                 multipliers = self.get_phase_splitting_values(len(phases))
                 period = self.shift_timeseries(4*8)
-                factor = np.random.random(1)*0.2+0.7
+                factor = np.random.random(1)*0.3+0.7
                 for j,p in enumerate(phases):
                     if(annual_consumption>tech_installation_sizes[0]):
                         ts = self.ev_timeseries_high if column=='ev' else self.hp_timeseries_high

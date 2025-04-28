@@ -144,11 +144,13 @@ def plot_PF_results(feederbalancing, results, meaningful_days=None, clip=None, s
             for t in range(len(feederbalancing.timesteps)):
                 for p in range(3):  # Loop through the 3 phases
                     if issue == 'voltage':
-                        v[p].append(np.mean(results[f][t][issue][p]))  # Voltage case
-                        number_issues[0] += np.sum((results[f][t][issue][p]>1.05) | (results[f][t][issue][p]<0.95))
+                        node_voltages = np.mean(results[f][t][issue][p])
+                        v[p].append(node_voltages)  # Voltage case
+                        number_issues[0] += np.sum((node_voltages>1.05) | (node_voltages<0.95))
                     elif issue == 'loss_line':
-                        v[p].append(np.sum(np.abs(results[f][t][issue][p])))  # Line loss case
-                        number_issues[1] += np.sum((results[f][t][issue][p]>100))
+                        line_losses = np.array(results[f][t][issue][p])
+                        v[p].append(np.sum(np.abs(line_losses)))  # Line loss case
+                        number_issues[1] += np.sum((line_losses>100))
 
             # Plot for each phase
             for p in range(3):
