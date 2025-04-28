@@ -153,8 +153,8 @@ def plot_PF_results(feederbalancing, results, meaningful_days=None, clip=None, s
 
             # Print statistics
             total_sum = np.sum(v)
-            total_sum_per_phase = np.sum(v, axis=1) * 1000  # Multiply by 1000 if units need adjustment
-            print(f"Feeder {f}: Total = {total_sum}, Per Phase (milliunits) = {total_sum_per_phase}")
+            total_sum_per_phase = np.sum(v, axis=1)
+            print(f"Feeder {f}: Total = {total_sum*1000} (kWh), Per Phase = {total_sum_per_phase} (kWh).")
             print(f"Max Values: {np.max(v[0])}, {np.max(v[1])}, {np.max(v[2])}")
             print(f"Min Values: {np.min(v[0])}, {np.min(v[1])}, {np.min(v[2])}")
             print()
@@ -174,6 +174,8 @@ def plot_PF_results(feederbalancing, results, meaningful_days=None, clip=None, s
         if(clip and issue == 'voltage'):
             ax1.set_ylabel(f"{issue.capitalize()} (p.u.)", fontsize=fontsize)
             plt.ylim(clip)
+            plt.axhline(y=1.05, color='r', linestyle='--')
+            plt.axhline(y=0.95, color='r', linestyle='--')
         elif(clip and issue == 'loss_line'):
             ax1.set_ylabel(f"{issue.capitalize()} (kWh)", fontsize=fontsize)
 

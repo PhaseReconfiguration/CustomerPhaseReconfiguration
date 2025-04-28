@@ -4,7 +4,7 @@ import numpy as np
 class GA:
 
     def __init__(self, feederbalancing, reconstruct=False) -> None:
-        np.random.seed(1234)
+        np.random.seed(14)
         self.feederbalancing = feederbalancing
         self.okay = 0
         self.total = 0

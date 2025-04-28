@@ -20,23 +20,24 @@ class FeederBalancing:
     def __init__(self, input_path):
         # Conventions:
         # - Use kWh for timeseries (easier to understand even it pandapower asks for MWh at the end)
-        np.random.seed(1234)
+        np.random.seed(14)
         self.input_path = input_path
 
         self.avalilable_phases = ['A', 'B', 'C']
         self.len_timeseries = 4*24*365 #to change depending on the availbale data
         self.dict_phasecode_to_number = {'Monophasé (sans neutre)':1, 'Monophasé':1, 'Triphasé':2, 'Tétraphasé':3}
-        self.pv_scaling_factor = 712 #2850/4=712 -> energy produced by a system of 1 kWhp in an year. 
-        self.pv_installation_sizes = [self.pv_scaling_factor * 2, self.pv_scaling_factor * 16] #Ref: https://www.yesenergysolutions.co.uk/advice/how-much-energy-solar-panels-produce-home
+        self.pv_scaling_factor = 700 #Energy produced by a system of 1 kWhp in an year. 
+        self.pv_installation_sizes = [self.pv_scaling_factor * 3.5, self.pv_scaling_factor * 16] #Ref: https://www.yesenergysolutions.co.uk/advice/how-much-energy-solar-panels-produce-home
         self.ev_scaling_factor = 350
-        self.ev_installation_sizes = [self.ev_scaling_factor * 3, self.ev_scaling_factor * 15] #Ref: TODO
+        self.ev_installation_sizes = [self.ev_scaling_factor * 3, self.ev_scaling_factor * 18] #Ref: TODO
         self.hp_scaling_factor = 300
-        self.hp_installation_sizes = [self.hp_scaling_factor * 2, self.hp_scaling_factor * 14] #Ref: TODO
+        self.hp_installation_sizes = [self.hp_scaling_factor * 5, self.hp_scaling_factor * 12] #Ref: TODO
+        self.installations = {"pv": [0,0], "ev": [0,0], "hp": [0,0]}
 
         self.consumption_file = pd.read_excel(os.path.join(self.input_path, "RESA", "anonymized_consumption_file.xlsx"))
-        self.list_load_timeseries = pd.read_csv(os.path.join(input_path, 'RESA', 'anonymized_Load_SM_timeseries.csv'), sep=',', index_col=0).reset_index()
+        self.list_load_timeseries = pd.read_csv(os.path.join(self.input_path, 'RESA', 'anonymized_Load_SM_timeseries.csv'), sep=',', index_col=0).reset_index()
         self.load_timeseries_default = pd.read_csv(os.path.join(self.input_path, 'Timeseries', '1-LV-rural2--1-sw', 'LoadProfile.csv'), sep=';').reset_index()
-        self.list_pv_timeseries = pd.read_csv(os.path.join(input_path, 'RESA', 'anonymized_PV_SM_timeseries.csv'), sep=',', index_col=0).reset_index()
+        self.list_pv_timeseries = pd.read_csv(os.path.join(self.input_path, 'RESA', 'anonymized_PV_SM_timeseries.csv'), sep=',', index_col=0).reset_index()
         self.pv_timeseries_default = pd.read_csv(os.path.join(self.input_path, 'Timeseries', '1-LV-rural2--1-sw', 'RESProfile.csv'), sep=';').reset_index()
         self.evhp_timeseries = pd.read_excel(os.path.join(self.input_path, 'Timeseries', 'HPEV timeseries.xlsx')).reset_index()[:self.len_timeseries]
         self.ev_timeseries_high = pd.read_csv(os.path.join(self.input_path, 'Timeseries', 'EV_High.csv'),  index_col=0)[:self.len_timeseries]['High']
@@ -70,12 +71,14 @@ class FeederBalancing:
         self.associated_loss = []
         self.changes_loss = []
         self.loss_distance = []
+        
+        self.NetInfo(self.net)
 
     def import_network(self, input_path):
         net = pp.from_pickle(os.path.join(input_path, 'anonymized_net.p'))
         choosable_buses = list(net.asymmetric_load.bus)
 
-        self.NetInfo(net)
+        # self.NetInfo(net)
         simple_plotly(net, bus_color=net.bus['color'])
 
         distances = 1 / np.array(net.asymmetric_load['distance'])
@@ -88,9 +91,42 @@ class FeederBalancing:
         print(f'There are {len(net.bus)} nodes')
         print(f"There are {len(net.line)} lines")
         print(f"There are {np.sum(net.bus['info']=='customer')} customers")
-        print(f"There are {np.sum(net.asymmetric_load.phase_pv.values != None)} customers with PV")
-        print(f"There are {np.sum(net.asymmetric_load.phase_ev.values != None)} customers with EV")
-        print(f"There are {np.sum(net.asymmetric_load.phase_hp.values != None)} customers with HP")
+        total_customers = len(net.asymmetric_load)
+
+        # Count customers with PV
+        pv_count = np.sum(net.asymmetric_load.phase_pv.values != None)
+        print(f"There are {pv_count} customers with PV ({pv_count/total_customers*100:.1f}%)")
+
+        # Count customers with EV
+        ev_count = np.sum(net.asymmetric_load.phase_ev.values != None)
+        print(f"There are {ev_count} customers with EV ({ev_count/total_customers*100:.1f}%)")
+
+        # Count customers with HP
+        hp_count = np.sum(net.asymmetric_load.phase_hp.values != None)
+        print(f"There are {hp_count} customers with HP ({hp_count/total_customers*100:.1f}%)")
+
+        # Count PV+EV combination
+        pv_ev_count = np.sum((net.asymmetric_load.phase_pv.values != None) & 
+                            (net.asymmetric_load.phase_ev.values != None))
+        print(f"There are {pv_ev_count} customers with PV+EV ({pv_ev_count/total_customers*100:.1f}%)")
+
+        # Count PV+HP combination
+        pv_hp_count = np.sum((net.asymmetric_load.phase_pv.values != None) & 
+                            (net.asymmetric_load.phase_hp.values != None))
+        print(f"There are {pv_hp_count} customers with PV+HP ({pv_hp_count/total_customers*100:.1f}%)")
+
+        # Count PV+EV+HP combination (all three)
+        pv_ev_hp_count = np.sum((net.asymmetric_load.phase_pv.values != None) & 
+                                (net.asymmetric_load.phase_ev.values != None) & 
+                                (net.asymmetric_load.phase_hp.values != None))
+        print(f"There are {pv_ev_hp_count} customers with PV+EV+HP ({pv_ev_hp_count/total_customers*100:.1f}%)")
+
+        # Count customers with no DER
+        no_der_count = np.sum((net.asymmetric_load.phase_pv.values == None) & 
+                            (net.asymmetric_load.phase_ev.values == None) & 
+                            (net.asymmetric_load.phase_hp.values == None))
+        print(f"There are {no_der_count} customers with no DER ({no_der_count/total_customers*100:.1f}%)")
+
 
     def get_phasecode_from_number(self, number_phases):
         value = {i for i in self.dict_phasecode_to_number if self.dict_phasecode_to_number[i]==number_phases}
@@ -208,6 +244,8 @@ class FeederBalancing:
                 phases = c['phase_pv'].values[0]
                 if(phases is not None):
                     annual_prod = c['ann_pv_prod'].values[0]
+                    self.installations["pv"][0] += 1 if annual_prod <= self.pv_installation_sizes[0] else 0
+                    self.installations["pv"][1] += 1 if annual_prod > self.pv_installation_sizes[0] else 0
 
                     multipliers = self.get_phase_splitting_values(len(phases))
                     period = self.shift_timeseries(4*2)
@@ -229,6 +267,8 @@ class FeederBalancing:
                 # Decide the number of phases based on the annual consumption
                 number_phase = 1 if annual_prod <= self.pv_installation_sizes[0] else 3 #It can generate conflicts with the load phase
                 number_phase = min(number_phase, len(phases_load)) #so avoid that the load is 1-phase but the PV 3-phase
+                self.installations["pv"][0] += 1 if annual_prod <= self.pv_installation_sizes[0] else 0
+                self.installations["pv"][1] += 1 if annual_prod > self.pv_installation_sizes[0] else 0
                 
                 phases = phases_load if number_phase < len(self.avalilable_phases) else  self.avalilable_phases[:number_phase]
                 
@@ -237,7 +277,7 @@ class FeederBalancing:
 
                 for i,p in enumerate(phases):
                     multipliers = self.get_phase_splitting_values(len(phases))
-                    tmp_pv_timeseries = self.normalize_time_series(self.list_pv_timeseries[ean], annual_prod * multipliers[i])[:self.len_timeseries]
+                    tmp_pv_timeseries = self.normalize_time_series(self.list_pv_timeseries[ean], annual_prod * multipliers[i] * 0.9)[:self.len_timeseries]
                     assigned_pv_timeseries[f"{ean}_{p}"] = -tmp_pv_timeseries
             else:
                 customers_wo_ts.append(c)
@@ -267,13 +307,15 @@ class FeederBalancing:
                 h_surface = c['hh_surf']
 
                 phases, annual_consumption = self.phases_from_score(h_surface, phases_load, tech_installation_sizes)
+                self.installations[column][1] += 1 if annual_consumption>tech_installation_sizes[0] else 0
+                self.installations[column][0] += 1 if annual_consumption<=tech_installation_sizes[0] else 0
                 
                 self.net.asymmetric_load.at[i, f'ann_{column}_cons'] = annual_consumption
                 # self.net.asymmetric_load.at[i, f'phase_{column}'] = ''.join(phases)
 
                 multipliers = self.get_phase_splitting_values(len(phases))
-                period = self.shift_timeseries(4*6)
-                factor = np.random.random(1)*0.2+0.8
+                period = self.shift_timeseries(4*8)
+                factor = np.random.random(1)*0.2+0.7
                 for j,p in enumerate(phases):
                     if(annual_consumption>tech_installation_sizes[0]):
                         ts = self.ev_timeseries_high if column=='ev' else self.hp_timeseries_high

@@ -14,6 +14,7 @@ class RobustSimulation:
         self.input_path = out_path
 
         self.results = {u: {'before': None, 'after': []} for u in self.uncertainty_levels}
+        self.P_variations = {u: [] for u in self.uncertainty_levels}
         self.fluctuations = {u: [] for u in self.uncertainty_levels}
 
     def run_robust_simulation(self):
@@ -26,6 +27,7 @@ class RobustSimulation:
             P = self.feederbalancing.change_P(self.feederbalancing.B_sol)  # Use optimized phase assignment
             _, results_before = self.feederbalancing.run_simulations(P, f"{self.input_path}/results_before_{u}.npy")
             self.results[u]['before'] = results_before
+            self.P_variations[u].append(P)
 
             for s in range(self.n_simulations if u > 0 else 1):
                 print(f"Running AFTER simulation for uncertainty={u*100:.0f}%, simulation={s+1}")
@@ -41,6 +43,7 @@ class RobustSimulation:
                     for i, p in enumerate(phases):
                         P_modified[f'{ean}_{p}'] *= fluctuation_factors[:, i]
                         self.fluctuations[u].append(fluctuation_factors[:, i])
+                    self.P_variations[u].append(P_modified)
 
                 _, results_after = self.feederbalancing.run_simulations(P_modified, f"{self.input_path}/results_after_{u}_{s}.npy")
                 self.results[u]['after'].append(results_after)
@@ -61,6 +64,8 @@ class RobustSimulation:
             after = np.array(self.results[u]['after'])
             abs_deltas = []
 
+            P_before = np.array(self.P_variations[u][0])
+
             for s in range(len(after)):  # for each simulation
                 delta_per_timestep = []
 
@@ -77,6 +82,8 @@ class RobustSimulation:
                     delta_per_timestep.append(np.mean(timestep_deltas))
 
                 abs_deltas.append(np.mean(delta_per_timestep))
+                P_after = np.array(self.P_variations[u][1+s])
+                # P_variation = 
 
             mean = np.mean(abs_deltas)
             ci = 0 if len(abs_deltas) < 2 else stats.sem(abs_deltas) * stats.t.ppf((1 + confidence) / 2., len(abs_deltas) - 1)
