@@ -43,6 +43,7 @@ class FeederBalancing:
         self.ev_timeseries_high = pd.read_csv(os.path.join(self.input_path, 'Timeseries', 'EV_High.csv'),  index_col=0)[:self.len_timeseries]['High']
         self.hp_timeseries_high = pd.read_csv(os.path.join(self.input_path, 'Timeseries', 'HP_High.csv'),  index_col=0)[:self.len_timeseries]['High']
 
+        self.s = []
         self.net, self.choosable_buses, self.distances = self.import_network(self.input_path)
         self.number_customers = len(self.net.asymmetric_load)
         self.feeders = [270,61]
@@ -73,6 +74,7 @@ class FeederBalancing:
         self.loss_distance = []
         
         self.NetInfo(self.net)
+
 
     def import_network(self, input_path):
         net = pp.from_pickle(os.path.join(input_path, 'anonymized_net.p'))
@@ -156,8 +158,10 @@ class FeederBalancing:
         if number_phases==1:
             return [1]
         else:
-            values = np.random.normal(1/number_phases, 0.05, number_phases)
-            values = values / values.sum()
+            values = np.random.normal(1/number_phases, 0.2, number_phases)
+            values = np.maximum(values, 0.1)
+            values = values / values.sum() #Normalize to sum=1
+            self.s.append(values)
             return values
 
     def shift_timeseries(self, shifting_value):
@@ -277,7 +281,7 @@ class FeederBalancing:
 
                 for i,p in enumerate(phases):
                     multipliers = self.get_phase_splitting_values(len(phases))
-                    tmp_pv_timeseries = self.normalize_time_series(self.list_pv_timeseries[ean], annual_prod * multipliers[i] * 0.9)[:self.len_timeseries]
+                    tmp_pv_timeseries = self.normalize_time_series(self.list_pv_timeseries[ean], annual_prod * multipliers[i])[:self.len_timeseries]
                     assigned_pv_timeseries[f"{ean}_{p}"] = -tmp_pv_timeseries
             else:
                 customers_wo_ts.append(c)
@@ -364,8 +368,9 @@ class FeederBalancing:
             ean = c['ean']
             for p in phases:
                 column = f'{ean}_{p}'
+                ###Miscellaneous Load###
                 P[column] += self.assigned_load_timeseries[column]
-            if(len(phases) == 1): #Customers connected to a single phase
+            if(len(phases) == 1): #Customers connected to a single phase -> connect everything to that phase
                 column = f'{ean}_{phases[0]}'
                 if(c['phase_ev'] is not None):
                     P[column] += self.assigned_ev_timeseries[column]

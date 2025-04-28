@@ -133,7 +133,8 @@ def plot_feeder_unbalance(feederbalancing, A_init, A_sol, feeder_colors, feeder_
 
 def plot_PF_results(feederbalancing, results, meaningful_days=None, clip=None, save_paths=None):
     # issues_to_consider = ['voltage', 'load_line', 'loss_line', 'load_trafo', 'loss_trafo']
-    for issue in ['voltage', 'loss_line']:
+    number_issues = [0,0]
+    for i, issue in enumerate(['voltage', 'loss_line']):
         fig1, ax1 = plt.subplots(figsize=figsize)
 
         for f in range(len(feederbalancing.feeders)):
@@ -144,8 +145,10 @@ def plot_PF_results(feederbalancing, results, meaningful_days=None, clip=None, s
                 for p in range(3):  # Loop through the 3 phases
                     if issue == 'voltage':
                         v[p].append(np.mean(results[f][t][issue][p]))  # Voltage case
+                        number_issues[0] += np.sum((results[f][t][issue][p]>1.05) | (results[f][t][issue][p]<0.95))
                     elif issue == 'loss_line':
-                        v[p].append(np.sum(results[f][t][issue][p]))  # Line loss case
+                        v[p].append(np.sum(np.abs(results[f][t][issue][p])))  # Line loss case
+                        number_issues[1] += np.sum((results[f][t][issue][p]>100))
 
             # Plot for each phase
             for p in range(3):
@@ -154,7 +157,7 @@ def plot_PF_results(feederbalancing, results, meaningful_days=None, clip=None, s
             # Print statistics
             total_sum = np.sum(v)
             total_sum_per_phase = np.sum(v, axis=1)
-            print(f"Feeder {f}: Total = {total_sum*1000} (kWh), Per Phase = {total_sum_per_phase} (kWh).")
+            print(f"Feeder {f}: Total = {total_sum*1000} (kWh), Per Phase = {total_sum_per_phase*1000} (kWh). Number of issues: {number_issues[i]} ({issue})")
             print(f"Max Values: {np.max(v[0])}, {np.max(v[1])}, {np.max(v[2])}")
             print(f"Min Values: {np.min(v[0])}, {np.min(v[1])}, {np.min(v[2])}")
             print()
