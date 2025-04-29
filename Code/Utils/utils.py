@@ -2,9 +2,9 @@ import colorsys
 import matplotlib.pyplot as plt
 import numpy as np
 
-figsize = (12,6)
+figsize = (12,8)
 fontsize = 18
-legend_fontsize = 14
+legend_fontsize = 15
 
 def hex_to_rgb(hex_color):
     """Convert hex color to RGB values in the range [0, 1]."""
@@ -159,7 +159,7 @@ def plot_PF_results(feederbalancing, results, meaningful_days=None, clip=None, s
             # Print statistics
             total_sum = np.sum(v)
             total_sum_per_phase = np.sum(v, axis=1)
-            print(f"Feeder {f}: Total = {total_sum*1000} (kWh), Per Phase = {total_sum_per_phase*1000} (kWh). Number of issues: {number_issues[i]} ({issue})")
+            print(f"Feeder {f}: Total = {total_sum*1000} (kWh), Per Phase = {total_sum_per_phase*1000} (kWh). Number of issues: {number_issues[f]} ({issue})")
             print(f"Max Values: {np.max(v[0])}, {np.max(v[1])}, {np.max(v[2])}")
             print(f"Min Values: {np.min(v[0])}, {np.min(v[1])}, {np.min(v[2])}")
             print()

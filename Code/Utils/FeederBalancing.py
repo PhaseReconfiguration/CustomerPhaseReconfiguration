@@ -34,10 +34,10 @@ class FeederBalancing:
         self.hp_installation_sizes = [self.hp_scaling_factor * 4, self.hp_scaling_factor * 12] #Ref: TODO
         self.installations = {"pv": [0,0], "ev": [0,0], "hp": [0,0]}
 
-        self.consumption_file = pd.read_excel(os.path.join(self.input_path, "RESA", "anonymized_consumption_file.xlsx"))
-        self.list_load_timeseries = pd.read_csv(os.path.join(self.input_path, 'RESA', 'anonymized_Load_SM_timeseries.csv'), sep=',', index_col=0).reset_index()
+        self.consumption_file = pd.read_excel(os.path.join(self.input_path, "RESA", "consumption_file.xlsx"))
+        self.list_load_timeseries = pd.read_csv(os.path.join(self.input_path, 'RESA', 'Load_SM_timeseries.csv'), sep=',', index_col=0).reset_index()
         self.load_timeseries_default = pd.read_csv(os.path.join(self.input_path, 'Timeseries', '1-LV-rural2--1-sw', 'LoadProfile.csv'), sep=';').reset_index()
-        self.list_pv_timeseries = pd.read_csv(os.path.join(self.input_path, 'RESA', 'anonymized_PV_SM_timeseries.csv'), sep=',', index_col=0).reset_index()
+        self.list_pv_timeseries = pd.read_csv(os.path.join(self.input_path, 'RESA', 'PV_SM_timeseries.csv'), sep=',', index_col=0).reset_index()
         self.pv_timeseries_default = pd.read_csv(os.path.join(self.input_path, 'Timeseries', '1-LV-rural2--1-sw', 'RESProfile.csv'), sep=';').reset_index()
         self.evhp_timeseries = pd.read_excel(os.path.join(self.input_path, 'Timeseries', 'HPEV timeseries.xlsx')).reset_index()[:self.len_timeseries]
         self.ev_timeseries_high = pd.read_csv(os.path.join(self.input_path, 'Timeseries', 'EV_High.csv'),  index_col=0)[:self.len_timeseries]['High']
@@ -77,7 +77,7 @@ class FeederBalancing:
 
 
     def import_network(self, input_path):
-        net = pp.from_pickle(os.path.join(input_path, 'anonymized_net.p'))
+        net = pp.from_pickle(os.path.join(input_path, 'net.p'))
         choosable_buses = list(net.asymmetric_load.bus)
 
         # self.NetInfo(net)
@@ -594,7 +594,7 @@ class FeederBalancing:
             
             # Calculate unbalance loss for all timesteps
             # Reshape mu to (T,1) for broadcasting
-            loss = np.abs(A - mu[:, np.newaxis]).sum(axis=1)  # Shape: (T,)
+            loss = np.square(A - mu[:, np.newaxis]).sum(axis=1)  # Shape: (T,)
             loss_unbalance += np.sum(loss)
             
             # Calculate aggregate loss
