@@ -43,7 +43,6 @@ class FeederBalancing:
         self.ev_timeseries_high = pd.read_csv(os.path.join(self.input_path, 'Timeseries', 'EV_High.csv'),  index_col=0)[:self.len_timeseries]['High']
         self.hp_timeseries_high = pd.read_csv(os.path.join(self.input_path, 'Timeseries', 'HP_High.csv'),  index_col=0)[:self.len_timeseries]['High']
 
-        self.s = []
         self.net, self.choosable_buses, self.distances = self.import_network(self.input_path)
         self.number_customers = len(self.net.asymmetric_load)
         self.feeders = [270,61]
@@ -161,7 +160,6 @@ class FeederBalancing:
             values = np.random.normal(1/number_phases, 0.05, number_phases)
             values = np.maximum(values, 0.1)
             values = values / values.sum() #Normalize to sum=1
-            self.s.append(values)
             return values
 
     def shift_timeseries(self, shifting_value):
